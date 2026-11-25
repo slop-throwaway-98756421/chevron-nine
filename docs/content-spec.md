@@ -16,7 +16,7 @@ The prototype answers one question: *is a single season, ending in a shipment sc
 | Start crew | 8 workers | Habitats add 4 each. |
 | Permits | 4 per season | Each card building costs 1 permit. Core buildings cost none. |
 | Hand | 4 unique cards from the deck, 1 redraw | Season 1 always has a Mine and a Farm. Every hand has at least one card from each chain. |
-| Resupply | +10 Ore, +2 Alloy, +4 Rations at the start of seasons 2+ | A floor so a bad shipment can't leave you with nothing to build with. |
+| Emergency resupply | Seasons 2+: Ore topped up to 12, Rations to 4 | Only fills up to the floor, so it is a safety net, not income. |
 | Warehouse reserve | 10 Ore, 4 Alloy | Processors won't pull the warehouse below this, so they can't eat your building budget. Adjacent hand-off and Habitats ignore it. |
 | Seasons | Continue while you meet quota | Buildings and leftover goods carry over. New hand and permits each season. No shop yet. |
 
@@ -84,15 +84,25 @@ Then a count-up: each line ticks up, then value, then × mult, then the score co
 
 ## Quota curve
 
-`quota(n) = round10(150 × 1.6^(n−1))`, × 1.25 on boss seasons (every 4th).
+`quota(n) = round10(200 × 1.7^(n−1))`, × 1.25 on boss seasons (every 4th).
 
 | Season | 1 | 2 | 3 | 4 (boss) | 5 | 6 | 7 | 8 (boss) |
 |---|---|---|---|---|---|---|---|---|
-| Quota | 150 | 240 | 380 | 770 | 980 | 1,570 | 2,520 | 5,030 |
+| Quota | 200 | 340 | 580 | 1,230 | 1,670 | 2,840 | 4,830 | 10,260 |
 
-1.6× per season is a bit above the doc's 1.5× because buildings carry over and compound. Boss seasons only raise the number in this build; boss rule changes come with step 3.
+1.7× per season is above the doc's 1.5× because buildings carry over: an engine you stop growing makes roughly the same score every season, so the quota has to outrun it. The target is that a colony that stops building fails within one or two seasons. Boss seasons only raise the number in this build; boss rule changes come with step 3.
 
-**Balance check** (`--balance` in the test runner, a greedy bot over 30 seeds that ships everything): season 1 median 294 vs quota 150 (min 226, max 443); most bot runs die at the season 4 boss. A human who keeps materials and feeds Habitats should reach season 4–6. The wide spread in season 1 comes from the hand draw, which is the first thing to watch in playtests.
+*Tuning history:* v1 was 150 × 1.6 with a flat +10 Ore/+2 Alloy/+4 Rations resupply. Marcus found he could build in season 1 and skip to the gate for the next few seasons.
+
+**Balance check** (`--balance` in the test runner, a greedy bot over 30 seeds; the bot is much weaker than a person):
+
+| Bot policy | Where runs fail (30 seeds) |
+|---|---|
+| Builds once in season 1, then skips to the gate | 23 in season 2, 7 in season 3 |
+| Builds every season, ships everything | 9 in season 2, 21 in season 3 |
+| Builds every season, keeps 30 Ore and 8 Rations | 5 in season 1, 3 in season 2, 21 in season 3, 1 in season 4 |
+
+The season 4 boss (1,230) is meant to be a wall without Charters, since the only multiplier in this build is Habitats (+0.5 each). Step 2 adds Charters to climb it. A human who keeps materials and feeds Habitats should reach season 4–6. The wide spread in season 1 comes from the hand draw, which is the first thing to watch in playtests.
 
 ## Starter Charters (for step 2, not in this build)
 
@@ -117,10 +127,10 @@ Intended combos: Prospector's Claim + Assay Contract (ore spam), Monoculture + a
 
 Runs bricked too easily: demolishing lost the blueprint, hands could miss a whole chain, and all-or-nothing shipping forced a choice between bricking and failing the quota. Fixes: chain-covering hands, salvaged blueprints and free same-season undo, partial shipping, a small resupply, and a warehouse reserve.
 
-With these, the greedy bot (ships everything) now usually reaches the season 4 boss: 21 of 30 runs fail there, versus most failing in season 2–3 before.
+These made runs too safe at first, so the resupply became a floor top-up and the quota curve was raised (see above).
 
 ## Open questions
 
 1. Season length: 180 s here vs ~5 min in the doc. Which feels right once you've played a few?
-2. Are the anti-brick rules too generous now? The resupply in particular could be cut once the shop exists.
+2. Is 200 × 1.7 the right pressure? Skipping should fail fast, but steady building should still reach the boss.
 3. Is shipping Rations (worth 4) vs feeding Habitats (+0.5 mult each) an interesting choice, or obvious?

@@ -70,7 +70,7 @@ func _season_start() -> void:
 	var boss := "  BOSS SEASON" if sim.is_boss(sim.season) else ""
 	var resupply := ""
 	if sim.season > 1:
-		resupply = " Resupply arrived: %s." % _cost_str(sim.C.season.get("resupply", {}))
+		resupply = " Emergency resupply tops the warehouse up to %s." % _cost_str(sim.C.season.get("resupply_floor", {}))
 	say("Season %d: ship %d by the time the gate opens.%s%s Paused: plan, then press Space." % [sim.season, sim.quota, boss, resupply])
 
 

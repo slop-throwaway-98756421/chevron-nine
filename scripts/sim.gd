@@ -164,10 +164,11 @@ func _start_season() -> void:
 	produced = {}
 	_acc = 0.0
 	if season > 1:
-		# The ship sends a small resupply through the gate [Guess], so a bad
+		# The ship sends an emergency resupply through the gate [Guess], so a bad
 		# shipment can't leave the colony with nothing to build with.
-		for g in C.season.get("resupply", {}):
-			stock[g] += int(C.season.resupply[g])
+		# It only tops the warehouse up to a floor, so it is a safety net, not income.
+		for g in C.season.get("resupply_floor", {}):
+			stock[g] = maxi(int(stock[g]), int(C.season.resupply_floor[g]))
 	for id in order:
 		var b: Dictionary = buildings[id]
 		if b.type == "habitat":

@@ -7,12 +7,12 @@
     "redraws": 1,
     "start_crew": 8,
     "start_stock": { "ore": 24, "alloy": 6, "rations": 8 },
-    "resupply": { "ore": 10, "alloy": 2, "rations": 4 },
+    "resupply_floor": { "ore": 12, "rations": 4 },
     "warehouse_reserve": { "ore": 10, "alloy": 4 }
   },
   "quota": {
-    "base": 150,
-    "growth": 1.6,
+    "base": 200,
+    "growth": 1.7,
     "boss_every": 4,
     "boss_factor": 1.25,
     "round_to": 10

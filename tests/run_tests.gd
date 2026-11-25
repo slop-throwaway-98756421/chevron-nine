@@ -202,7 +202,14 @@ func test_resupply() -> void:
 	run_season(s)
 	s.ship()
 	s.advance()
-	check(s.season == 2 and s.stock.ore == int(s.C.season.resupply.ore), "season 2 starts with the resupply (%d Ore)" % s.stock.ore)
+	check(s.season == 2 and s.stock.ore == int(s.C.season.resupply_floor.ore), "empty warehouse is topped up to the floor (%d Ore)" % s.stock.ore)
+	s.stock.ore = 50
+	s.quota = 0
+	run_season(s)
+	s.ship({"ore": false})
+	var kept: int = s.stock.ore
+	s.advance()
+	check(s.stock.ore == kept, "a stocked warehouse gets no resupply (%d Ore)" % s.stock.ore)
 
 
 func test_main_scene_loads() -> void:
@@ -215,21 +222,28 @@ func test_main_scene_loads() -> void:
 
 
 func balance_report() -> void:
-	for keep in [false, true]:
-		_balance(keep)
+	_balance(false, false)
+	_balance(true, false)
+	_balance(false, true)
+	_balance(true, true)
 
 
-func _balance(keep_materials: bool) -> void:
-	print("\nbalance: greedy bot, 30 seeds, %s" % ("keeps Ore and Rations" if keep_materials else "ships everything"))
-	var sel := {"ore": false, "rations": false} if keep_materials else {}
+## lazy: builds in season 1 only, then just skips to the gate every season.
+func _balance(keep_materials: bool, lazy: bool) -> void:
+	var label := ("builds once then skips" if lazy else "builds every season") + (", keeps 30 Ore and 8 Rations" if keep_materials else ", ships everything")
+	print("\nbalance: greedy bot, 30 seeds, %s" % label)
 	var reached := {}
 	var s1_scores := []
 	for seed in 30:
 		var s := fresh(1000 + seed)
 		var bot := Bot.new(s)
 		while s.phase != "over" and s.season <= 12:
-			bot.play_build_phase()
+			if not lazy or s.season == 1:
+				bot.play_build_phase()
 			run_season(s)
+			var sel := {}
+			if keep_materials:
+				sel = {"ore": maxi(0, s.stock.ore - 30), "rations": maxi(0, s.stock.rations - 8)}
 			var r := s.ship(sel)
 			if s.season == 1:
 				s1_scores.append(r.score)
