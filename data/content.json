@@ -1,0 +1,89 @@
+{
+  "_note": "Greybox content for prototype step 1. Every number here is a guess to be tuned by playtesting. See docs/content-spec.md.",
+  "season": {
+    "length_seconds": 180,
+    "permits": 4,
+    "hand_size": 4,
+    "redraws": 1,
+    "start_crew": 8,
+    "start_stock": { "ore": 24, "alloy": 6, "rations": 8 }
+  },
+  "quota": {
+    "base": 150,
+    "growth": 1.6,
+    "boss_every": 4,
+    "boss_factor": 1.25,
+    "round_to": 10
+  },
+  "prosperity": {
+    "base_mult": 1.0,
+    "per_fed_habitat": 0.5
+  },
+  "adjacency": {
+    "linked_speed_bonus": 0.5,
+    "pylon_speed_bonus": 0.25
+  },
+  "grid": { "width": 16, "height": 12 },
+  "goods": {
+    "ore":     { "name": "Ore",           "value": 1,  "color": "#a0522d" },
+    "alloy":   { "name": "Alloy",         "value": 5,  "color": "#6fa8dc" },
+    "parts":   { "name": "Machine Parts", "value": 24, "color": "#f1c232" },
+    "grain":   { "name": "Grain",         "value": 1,  "color": "#b6d7a8" },
+    "rations": { "name": "Rations",       "value": 4,  "color": "#93c47d" }
+  },
+  "buildings": {
+    "depot": {
+      "name": "Depot", "abbr": "DEP", "core": true, "buildable": false,
+      "cost": {}, "workers": 0, "color": "#e69138",
+      "desc": "Warehouse and gate pad. Anything touching it or linked to it by road can store and fetch goods."
+    },
+    "road": {
+      "name": "Road", "abbr": "", "core": true,
+      "cost": { "ore": 1 }, "workers": 0, "color": "#888888",
+      "desc": "Links buildings to the Depot. No permit needed."
+    },
+    "habitat": {
+      "name": "Habitat", "abbr": "HAB", "core": true,
+      "cost": { "ore": 6, "alloy": 2 }, "workers": 0, "housing": 4,
+      "eats": { "rations": 1 }, "eat_every": 20, "color": "#c27ba0",
+      "desc": "+4 workers. Eats 1 Rations every 20s. Fed share adds up to +0.5 mult. No permit needed."
+    },
+    "mine": {
+      "name": "Mine", "abbr": "MIN", "card": true,
+      "cost": { "ore": 4 }, "workers": 2, "terrain": "ore",
+      "inputs": {}, "outputs": { "ore": 1 }, "cycle": 3.0, "color": "#7f3f1f",
+      "desc": "1 Ore every 3s. Must sit on an ore deposit."
+    },
+    "smelter": {
+      "name": "Smelter", "abbr": "SML", "card": true,
+      "cost": { "ore": 8 }, "workers": 2,
+      "inputs": { "ore": 2 }, "outputs": { "alloy": 1 }, "cycle": 4.0, "color": "#3d85c6",
+      "desc": "2 Ore -> 1 Alloy every 4s."
+    },
+    "fabricator": {
+      "name": "Fabricator", "abbr": "FAB", "card": true,
+      "cost": { "alloy": 6 }, "workers": 3,
+      "inputs": { "alloy": 2 }, "outputs": { "parts": 1 }, "cycle": 6.0, "color": "#bf9000",
+      "desc": "2 Alloy -> 1 Machine Parts every 6s."
+    },
+    "farm": {
+      "name": "Farm", "abbr": "FRM", "card": true,
+      "cost": { "ore": 4 }, "workers": 1, "terrain": "fertile",
+      "inputs": {}, "outputs": { "grain": 1 }, "cycle": 2.5, "color": "#6aa84f",
+      "desc": "1 Grain every 2.5s. Must sit on fertile soil."
+    },
+    "mill": {
+      "name": "Ration Mill", "abbr": "MIL", "card": true,
+      "cost": { "ore": 6, "alloy": 1 }, "workers": 2,
+      "inputs": { "grain": 3 }, "outputs": { "rations": 2 }, "cycle": 5.0, "color": "#38761d",
+      "desc": "3 Grain -> 2 Rations every 5s."
+    },
+    "pylon": {
+      "name": "Relay Pylon", "abbr": "PYL", "card": true,
+      "cost": { "alloy": 4 }, "workers": 0, "color": "#8e7cc3",
+      "desc": "Adjacent production buildings run 25% faster. Stacks."
+    }
+  },
+  "starter_deck": ["mine", "mine", "mine", "smelter", "smelter", "fabricator", "fabricator", "farm", "farm", "farm", "mill", "mill", "pylon", "pylon"],
+  "extractors": ["mine", "farm"]
+}
