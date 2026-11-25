@@ -21,7 +21,7 @@ godot --path . -- --seed=1234     # fixed seed, to replay the same map and hands
 1. The season starts paused. Look at your hand, the terrain and the quota.
 2. Build. Cards from the hand cost 1 permit each; Roads and Habitats are always available.
 3. Press **Space** to run time (+/- or the buttons for 2x and 3x). Keep building while it runs.
-4. When the gate opens, untick anything you want to keep, then ship and watch the count-up.
+4. When the gate opens, slide down anything you want to keep, then ship and watch the count-up.
 5. Meet the quota and the next season starts with a new hand. Miss it and the run ends.
 
 | Key | Action |

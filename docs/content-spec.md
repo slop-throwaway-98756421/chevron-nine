@@ -15,7 +15,9 @@ The prototype answers one question: *is a single season, ending in a shipment sc
 | Start stock | 24 Ore, 6 Alloy, 8 Rations | Enough for 2–3 buildings plus roads. |
 | Start crew | 8 workers | Habitats add 4 each. |
 | Permits | 4 per season | Each card building costs 1 permit. Core buildings cost none. |
-| Hand | 4 unique cards from the deck, 1 redraw | Every hand contains at least one extractor (Mine or Farm). |
+| Hand | 4 unique cards from the deck, 1 redraw | Season 1 always has a Mine and a Farm. Every hand has at least one card from each chain. |
+| Resupply | +10 Ore, +2 Alloy, +4 Rations at the start of seasons 2+ | A floor so a bad shipment can't leave you with nothing to build with. |
+| Warehouse reserve | 10 Ore, 4 Alloy | Processors won't pull the warehouse below this, so they can't eat your building budget. Adjacent hand-off and Habitats ignore it. |
 | Seasons | Continue while you meet quota | Buildings and leftover goods carry over. New hand and permits each season. No shop yet. |
 
 **Hand rule deviation from the doc:** the doc says a hand of 5 that you can build "as often as permits allow". With 6 card types, 5 cards nearly always shows everything, and duplicates are dead cards. So the greybox draws **4 unique types**. Worth checking in playtests.
@@ -62,7 +64,7 @@ Ratios at base speed: 1 Smelter wants 0.5 Ore/s = 1.5 Mines. 1 Fabricator wants 
 |---|---|---|
 | Road | 1 Ore | Links buildings to the Depot. Click-drag to paint. |
 | Habitat | 6 Ore, 2 Alloy | +4 workers. Eats 1 Rations every 20 s (first meal on placement). Adds up to **+0.5 Prosperity mult**, scaled by the share of meals it got this season. |
-| Demolish | — | Refunds 50% of cost. Permits are not refunded. |
+| Demolish | — | Built this season: full refund, permit back (free undo). Older: 50% refund, and you keep a **salvaged blueprint** that rebuilds that building once, anywhere, without the card or a permit. |
 
 The single population tier (Settlers) is the Habitat. The core trade-off: Rations are worth 4 each when shipped, but every Ration eaten keeps a +0.5 mult alive.
 
@@ -74,7 +76,7 @@ Relay Pylon: 4 Alloy, 0 workers, +25% speed to touching production buildings.
 
 ## Scoring
 
-At season end the gate opens. You choose which goods to ship (unshipped goods stay for next season).
+At season end the gate opens. You choose how much of each good to ship with a slider (All / None shortcuts); the rest stays for next season.
 
 **Score = Σ(qty × value) × Prosperity**, Prosperity = 1.0 + 0.5 × Σ(fed share of each Habitat).
 
@@ -90,7 +92,7 @@ Then a count-up: each line ticks up, then value, then × mult, then the score co
 
 1.6× per season is a bit above the doc's 1.5× because buildings carry over and compound. Boss seasons only raise the number in this build; boss rule changes come with step 3.
 
-**Balance check** (`--balance` in the test runner, a greedy bot over 30 seeds that ships everything): season 1 median 269 vs quota 150 (min 104, max 464); most bot runs die in season 2–3. A human who keeps materials and feeds Habitats should reach season 4–6. The wide spread in season 1 comes from the hand draw, which is the first thing to watch in playtests.
+**Balance check** (`--balance` in the test runner, a greedy bot over 30 seeds that ships everything): season 1 median 294 vs quota 150 (min 226, max 443); most bot runs die at the season 4 boss. A human who keeps materials and feeds Habitats should reach season 4–6. The wide spread in season 1 comes from the hand draw, which is the first thing to watch in playtests.
 
 ## Starter Charters (for step 2, not in this build)
 
@@ -111,9 +113,14 @@ Rule-breakers in 5 slots, bought in the shop. Each one hooks into a system that 
 
 Intended combos: Prospector's Claim + Assay Contract (ore spam), Monoculture + a Parts-only engine, Company Town + Vertical Integration (dense layouts), Lean Crews + Bread and Circuits.
 
+## Anti-brick rules (after Marcus's first playtest)
+
+Runs bricked too easily: demolishing lost the blueprint, hands could miss a whole chain, and all-or-nothing shipping forced a choice between bricking and failing the quota. Fixes: chain-covering hands, salvaged blueprints and free same-season undo, partial shipping, a small resupply, and a warehouse reserve.
+
+With these, the greedy bot (ships everything) now usually reaches the season 4 boss: 21 of 30 runs fail there, versus most failing in season 2–3 before.
+
 ## Open questions
 
 1. Season length: 180 s here vs ~5 min in the doc. Which feels right once you've played a few?
-2. Hand of 4 unique cards instead of 5 with duplicates: does it feel fair, and is the extractor guarantee too generous?
-3. Should smelters and other processors be allowed to pull construction Ore from the warehouse? Right now they can, so a Smelter can starve your building budget. That is a real decision but may just feel annoying.
-4. Is shipping Rations (worth 4) vs feeding Habitats (+0.5 mult each) an interesting choice, or obvious?
+2. Are the anti-brick rules too generous now? The resupply in particular could be cut once the shop exists.
+3. Is shipping Rations (worth 4) vs feeding Habitats (+0.5 mult each) an interesting choice, or obvious?

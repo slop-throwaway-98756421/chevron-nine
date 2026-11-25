@@ -32,6 +32,7 @@ var permits := 0
 var redraws := 0
 var deck: Array = []
 var hand: Array = []
+var salvage := {}  # building type -> blueprints kept from demolished buildings
 var phase := "build"  # build -> ship -> result -> build ... or over
 var history: Array = []
 var produced := {}
@@ -75,6 +76,7 @@ func new_run(s: int) -> void:
 	for g in C.season.start_stock:
 		stock[g] = int(C.season.start_stock[g])
 	deck = C.starter_deck.duplicate()
+	salvage = {}
 	season = 1
 	history.clear()
 	last_result = {}
@@ -161,6 +163,11 @@ func _start_season() -> void:
 	redraws = int(C.season.redraws)
 	produced = {}
 	_acc = 0.0
+	if season > 1:
+		# The ship sends a small resupply through the gate [Guess], so a bad
+		# shipment can't leave the colony with nothing to build with.
+		for g in C.season.get("resupply", {}):
+			stock[g] += int(C.season.resupply[g])
 	for id in order:
 		var b: Dictionary = buildings[id]
 		if b.type == "habitat":
@@ -184,15 +191,29 @@ func _draw_hand() -> void:
 			break
 		if not hand.has(card):
 			hand.append(card)
-	# Fairness rule [Guess]: every hand has at least one extractor.
-	var has_extractor := false
-	for card in hand:
-		if C.extractors.has(card):
-			has_extractor = true
-	if not has_extractor and hand.size() > 0:
-		for card in pool:
-			if C.extractors.has(card) and not hand.has(card):
-				hand[hand.size() - 1] = card
+	# Fairness rules [Guess]: the first hand always has a Mine and a Farm,
+	# and every hand has at least one card from each production chain.
+	var required: Array = []
+	if season == 1:
+		required = C.get("first_hand", []).duplicate()
+	for chain in C.get("chains", {}):
+		var cards: Array = C.chains[chain]
+		var covered := false
+		for c in hand + required:
+			if cards.has(c):
+				covered = true
+		if not covered:
+			for card in pool:
+				if cards.has(card):
+					required.append(card)
+					break
+	for card in required:
+		if hand.has(card):
+			continue
+		# Replace a card that isn't itself required, from the back.
+		for i in range(hand.size() - 1, -1, -1):
+			if not required.has(hand[i]):
+				hand[i] = card
 				break
 
 
@@ -230,9 +251,10 @@ func can_place(type: String, x: int, y: int) -> String:
 	if d.has("terrain") and t != TERRAIN_BY_NAME[d.terrain]:
 		return "%s must go on %s" % [d.name, TERRAIN_LABEL[TERRAIN_BY_NAME[d.terrain]].to_lower()]
 	if d.get("card", false):
-		if not hand.has(type):
+		var salvaged := int(salvage.get(type, 0)) > 0
+		if not hand.has(type) and not salvaged:
 			return "%s is not in your hand this season" % d.name
-		if permits <= 0:
+		if permits <= 0 and not salvaged:
 			return "No construction permits left this season"
 	var missing := missing_cost(type)
 	if missing != "":
@@ -256,10 +278,24 @@ func place(type: String, x: int, y: int) -> String:
 	var d := def_of(type)
 	for g in d.cost:
 		stock[g] -= int(d.cost[g])
+	var paid_with := ""
 	if d.get("card", false):
-		permits -= 1
-	_add_building(type, x, y)
+		# Use a permit when the card is in hand; otherwise spend a salvaged blueprint.
+		if hand.has(type) and permits > 0:
+			permits -= 1
+			paid_with = "permit"
+		else:
+			salvage[type] = int(salvage[type]) - 1
+			paid_with = "salvage"
+	var id := _add_building(type, x, y)
+	buildings[id].paid_with = paid_with
+	buildings[id].season_placed = season
 	return ""
+
+
+## Whether a card building can be placed from salvage rather than the hand.
+func uses_salvage(type: String) -> bool:
+	return not (hand.has(type) and permits > 0) and int(salvage.get(type, 0)) > 0
 
 
 func demolish(x: int, y: int) -> String:
@@ -272,8 +308,23 @@ func demolish(x: int, y: int) -> String:
 	if b.type == "depot":
 		return "The Depot can't be demolished"
 	var d := def_of(b.type)
-	for g in d.cost:
-		stock[g] += int(d.cost[g]) / 2  # 50% refund [Guess]
+	if int(b.get("season_placed", 0)) == season:
+		# Same-season undo: full refund, and the permit or blueprint comes back.
+		for g in d.cost:
+			stock[g] += int(d.cost[g])
+		if b.get("paid_with", "") == "permit":
+			permits += 1
+		elif b.get("paid_with", "") == "salvage":
+			salvage[b.type] = int(salvage.get(b.type, 0)) + 1
+	else:
+		for g in d.cost:
+			stock[g] += int(d.cost[g]) / 2  # 50% refund [Guess]
+		# The blueprint is kept, so a building can be moved in a later season.
+		if d.get("card", false):
+			salvage[b.type] = int(salvage.get(b.type, 0)) + 1
+	for g in b.outb:
+		if b.connected:
+			stock[g] += int(b.outb[g])
 	buildings.erase(id)
 	order.erase(id)
 	grid[_i(x, y)] = -1
@@ -290,6 +341,7 @@ func _add_building(type: String, x: int, y: int) -> int:
 		"staffed": true, "connected": false, "linked": false,
 		"pylons": 0, "speed": 1.0, "status": "", "adj": [],
 		"fed": 0, "meals": 0, "eat_timer": 0.0,
+		"paid_with": "", "season_placed": season,
 	}
 	buildings[id] = b
 	order.append(id)
@@ -448,7 +500,11 @@ func _pull(b: Dictionary, g: String, n: int) -> int:
 			nb.outb[g] = have - take
 			got += take
 	if got < n and b.connected:
-		var take := mini(int(stock.get(g, 0)), n - got)
+		var avail := int(stock.get(g, 0))
+		if b.type != "habitat":
+			# Processors leave a building reserve in the warehouse [Guess].
+			avail -= int(C.season.get("warehouse_reserve", {}).get(g, 0))
+		var take := clampi(avail, 0, n - got)
 		stock[g] -= take
 		got += take
 	return got
@@ -508,7 +564,11 @@ func preview(selection: Dictionary = {}) -> Dictionary:
 	var base := 0
 	for g in C.goods:
 		var qty := int(stock.get(g, 0))
-		if qty <= 0 or selection.get(g, true) == false:
+		var pick = selection.get(g, qty)  # an amount, or true/false for all/none
+		if pick is bool:
+			pick = qty if pick else 0
+		qty = clampi(int(pick), 0, qty)
+		if qty <= 0:
 			continue
 		var v := int(C.goods[g].value)
 		lines.append({"good": g, "name": C.goods[g].name, "qty": qty, "value": v, "subtotal": qty * v})

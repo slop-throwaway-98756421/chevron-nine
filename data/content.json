@@ -6,7 +6,9 @@
     "hand_size": 4,
     "redraws": 1,
     "start_crew": 8,
-    "start_stock": { "ore": 24, "alloy": 6, "rations": 8 }
+    "start_stock": { "ore": 24, "alloy": 6, "rations": 8 },
+    "resupply": { "ore": 10, "alloy": 2, "rations": 4 },
+    "warehouse_reserve": { "ore": 10, "alloy": 4 }
   },
   "quota": {
     "base": 150,
@@ -85,5 +87,7 @@
     }
   },
   "starter_deck": ["mine", "mine", "mine", "smelter", "smelter", "fabricator", "fabricator", "farm", "farm", "farm", "mill", "mill", "pylon", "pylon"],
-  "extractors": ["mine", "farm"]
+  "extractors": ["mine", "farm"],
+  "chains": { "metal": ["mine", "smelter", "fabricator"], "food": ["farm", "mill"] },
+  "first_hand": ["mine", "farm"]
 }

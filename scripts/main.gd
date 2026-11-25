@@ -68,7 +68,10 @@ func _season_start() -> void:
 	overlay.hide()
 	tally = {}
 	var boss := "  BOSS SEASON" if sim.is_boss(sim.season) else ""
-	say("Season %d: ship %d by the time the gate opens.%s Paused: plan, then press Space." % [sim.season, sim.quota, boss])
+	var resupply := ""
+	if sim.season > 1:
+		resupply = " Resupply arrived: %s." % _cost_str(sim.C.season.get("resupply", {}))
+	say("Season %d: ship %d by the time the gate opens.%s%s Paused: plan, then press Space." % [sim.season, sim.quota, boss, resupply])
 
 
 # ---------------------------------------------------------------- UI build
@@ -135,7 +138,7 @@ func _build_ui() -> void:
 		b.focus_mode = Control.FOCUS_NONE
 		if t == "demolish":
 			b.text = "Demolish [X]"
-			b.tooltip_text = "Remove a building. Refunds half its cost; permits are not refunded."
+			b.tooltip_text = "Built this season: full refund and the permit back. Older: half refund, and you keep a salvaged blueprint to rebuild it elsewhere without a permit."
 		else:
 			var d := sim.def_of(t)
 			b.text = "%s [%s]  %s" % [d.name, "R" if t == "road" else "H", _cost_str(d.cost)]
@@ -179,8 +182,8 @@ func _build_overlay() -> void:
 			tally.t = 999.0)
 	add_child(overlay)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(340, 70)
-	panel.custom_minimum_size = Vector2(600, 560)
+	panel.position = Vector2(240, 60)
+	panel.custom_minimum_size = Vector2(800, 580)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color("#30343a")
 	style.set_corner_radius_all(10)
@@ -201,10 +204,10 @@ func _build_overlay() -> void:
 	tally_box = VBoxContainer.new()
 	v.add_child(tally_box)
 	score_holder = Control.new()
-	score_holder.custom_minimum_size = Vector2(560, 70)
+	score_holder.custom_minimum_size = Vector2(760, 70)
 	v.add_child(score_holder)
 	score_label = Label.new()
-	score_label.size = Vector2(560, 70)
+	score_label.size = Vector2(760, 70)
 	score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	score_label.add_theme_font_size_override("font_size", 44)
 	score_holder.add_child(score_label)
@@ -267,6 +270,25 @@ func _rebuild_hand() -> void:
 		hand_box.add_child(b)
 		tool_buttons[card] = b
 		n += 1
+	# Blueprints kept from demolished buildings: build without the card or a permit.
+	for type in sim.salvage:
+		var count := int(sim.salvage[type])
+		if count <= 0:
+			continue
+		var d := sim.def_of(type)
+		if tool_buttons.has(type):
+			tool_buttons[type].text += "   +%d salvaged" % count
+			continue
+		var b := Button.new()
+		b.toggle_mode = true
+		b.focus_mode = Control.FOCUS_NONE
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.text = "Salvaged %s ×%d   (%s, no permit)\n      %s" % [d.name, count, _cost_str(d.cost), d.desc]
+		b.custom_minimum_size = Vector2(520, 50)
+		b.modulate = Color("#cfe8ff")
+		b.pressed.connect(set_tool.bind(type))
+		hand_box.add_child(b)
+		tool_buttons[type] = b
 
 
 # ---------------------------------------------------------------- input
@@ -338,7 +360,7 @@ func _process(delta: float) -> void:
 		sim.step(delta * speed)
 	if sim.phase == "ship" and not overlay.visible:
 		_open_gate()
-	var sig := ",".join(sim.hand) + str(sim.season)
+	var sig := ",".join(sim.hand) + str(sim.season) + str(sim.salvage)
 	if sig != _hand_sig:
 		_hand_sig = sig
 		_rebuild_hand()
@@ -373,7 +395,8 @@ func _update_hud() -> void:
 	for k in tool_buttons:
 		if k == "demolish":
 			continue
-		tool_buttons[k].disabled = sim.missing_cost(k) != "" or (sim.def_of(k).get("card", false) and sim.permits <= 0)
+		tool_buttons[k].disabled = sim.missing_cost(k) != "" or (sim.def_of(k).get("card", false) \
+			and sim.permits <= 0 and int(sim.salvage.get(k, 0)) <= 0)
 	var lines: Array = []
 	for g in sim.C.goods:
 		var good: Dictionary = sim.C.goods[g]
@@ -438,22 +461,44 @@ func _open_gate() -> void:
 		var qty := int(sim.stock[g])
 		if qty <= 0:
 			continue
-		var cb := CheckBox.new()
-		cb.button_pressed = true
-		cb.focus_mode = Control.FOCUS_NONE
 		var v := int(sim.C.goods[g].value)
-		cb.text = "%s   %d × %d = %d" % [sim.C.goods[g].name, qty, v, qty * v]
-		if g == "rations" or g == "ore" or g == "alloy":
-			cb.tooltip_text = "Unshipped goods stay in the warehouse for next season."
-		cb.toggled.connect(func(_on): _update_ship_summary())
-		ship_list.add_child(cb)
-		ship_checks[g] = cb
+		var row := HBoxContainer.new()
+		var name_l := Label.new()
+		name_l.text = sim.C.goods[g].name
+		name_l.custom_minimum_size = Vector2(130, 0)
+		row.add_child(name_l)
+		var slider := HSlider.new()
+		slider.min_value = 0
+		slider.max_value = qty
+		slider.step = 1
+		slider.value = qty
+		slider.focus_mode = Control.FOCUS_NONE
+		slider.custom_minimum_size = Vector2(220, 24)
+		slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(slider)
+		var amt := Label.new()
+		amt.custom_minimum_size = Vector2(190, 0)
+		row.add_child(amt)
+		var refresh := func(val: float):
+			amt.text = "  ship %d × %d = %d   keep %d" % [int(val), v, int(val) * v, qty - int(val)]
+			_update_ship_summary()
+		slider.value_changed.connect(refresh)
+		for preset in [["All", qty], ["None", 0]]:
+			var pb := Button.new()
+			pb.text = preset[0]
+			pb.focus_mode = Control.FOCUS_NONE
+			pb.pressed.connect(func(): slider.value = preset[1])
+			row.add_child(pb)
+		ship_list.add_child(row)
+		ship_checks[g] = slider
+		amt.text = "  ship %d × %d = %d   keep 0" % [qty, v, qty * v]
+
 	ship_list.show()
 	ship_btn.show()
 	ship_summary.show()
 	tally_box.hide()
 	score_label.text = ""
-	verdict_label.text = "Untick goods you want to keep. Kept goods stay for building and feeding next season."
+	verdict_label.text = "Slide down anything you want to keep. Kept goods stay for building and feeding next season."
 	verdict_label.modulate = Color.WHITE
 	next_btn.hide()
 	retry_btn.hide()
@@ -464,7 +509,7 @@ func _open_gate() -> void:
 func _selection() -> Dictionary:
 	var sel := {}
 	for g in ship_checks:
-		sel[g] = ship_checks[g].button_pressed
+		sel[g] = int(ship_checks[g].value)
 	return sel
 
 

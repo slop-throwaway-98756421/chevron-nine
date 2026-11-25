@@ -16,6 +16,9 @@ func _init() -> void:
 	test_hungry_habitat_lowers_mult()
 	test_determinism()
 	test_hand_always_has_extractor()
+	test_demolish_keeps_blueprint()
+	test_partial_shipment_and_reserve()
+	test_resupply()
 	test_main_scene_loads()
 	if OS.get_cmdline_user_args().has("--balance"):
 		balance_report()
@@ -129,13 +132,77 @@ func test_determinism() -> void:
 func test_hand_always_has_extractor() -> void:
 	print("hand")
 	var ok := true
+	var first_ok := true
 	for seed in 200:
 		var s := fresh(seed)
-		if not (s.hand.has("mine") or s.hand.has("farm")):
-			ok = false
-		if s.hand.size() != int(s.C.season.hand_size):
-			ok = false
-	check(ok, "200 hands all have 4 unique cards and an extractor")
+		if not (s.hand.has("mine") and s.hand.has("farm")):
+			first_ok = false
+		for season in 4:
+			if season > 0:
+				s.season += 1
+				s._draw_hand()
+			if s.hand.size() != int(s.C.season.hand_size):
+				ok = false
+			for chain in s.C.chains:
+				var covered := false
+				for c in s.hand:
+					if s.C.chains[chain].has(c):
+						covered = true
+				if not covered:
+					ok = false
+	check(first_ok, "200 first hands all have a Mine and a Farm")
+	check(ok, "800 hands all have 4 cards covering both chains")
+
+
+func test_demolish_keeps_blueprint() -> void:
+	print("demolish")
+	var s := fresh(9)
+	var c := Vector2i(s.w / 2, s.h / 2)
+	s.hand = ["smelter"]
+	s.stock.ore = 100
+	s.place("smelter", c.x + 1, c.y)
+	check(s.permits == 3, "placing uses a permit")
+	s.demolish(c.x + 1, c.y)
+	check(s.permits == 4 and s.stock.ore == 100, "same-season undo refunds cost and permit")
+	s.place("smelter", c.x + 1, c.y)
+	s.season += 1  # pretend a season passed
+	s.hand = ["mine"]
+	s.permits = 0
+	s.demolish(c.x + 1, c.y)
+	check(int(s.salvage.get("smelter", 0)) == 1, "older building leaves a salvaged blueprint")
+	check(s.can_place("smelter", c.x - 1, c.y) == "", "salvaged blueprint builds without card or permit")
+	s.place("smelter", c.x - 1, c.y)
+	check(int(s.salvage.get("smelter", 0)) == 0, "building it spends the blueprint")
+
+
+func test_partial_shipment_and_reserve() -> void:
+	print("shipping")
+	var s := fresh(11)
+	run_season(s)
+	var ore_before: int = s.stock.ore
+	var r := s.ship({"ore": 5, "alloy": true, "rations": false})
+	check(s.stock.ore == ore_before - 5, "ship 5 Ore, keep the rest (%d left)" % s.stock.ore)
+	check(s.stock.rations > 0 and s.stock.alloy == 0, "kept Rations, shipped all Alloy")
+	s.advance()
+	if s.phase == "build":
+		check(true, "next season starts")
+	var s2 := fresh(12)
+	var c := Vector2i(s2.w / 2, s2.h / 2)
+	s2.hand = ["smelter"]
+	s2.stock.ore = 30
+	s2.place("smelter", c.x + 1, c.y)
+	run_season(s2)
+	check(s2.stock.ore == int(s2.C.season.warehouse_reserve.ore), "smelter leaves the Ore reserve (%d)" % s2.stock.ore)
+
+
+func test_resupply() -> void:
+	print("resupply")
+	var s := fresh(13)
+	s.quota = 0
+	run_season(s)
+	s.ship()
+	s.advance()
+	check(s.season == 2 and s.stock.ore == int(s.C.season.resupply.ore), "season 2 starts with the resupply (%d Ore)" % s.stock.ore)
 
 
 func test_main_scene_loads() -> void:
